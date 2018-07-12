@@ -14,6 +14,8 @@ import tensorflow as tf
 
 from data_util import GeneratorEnqueuer
 
+import training.gen_geo_map.gen_geo_map as gen_geo_map
+
 tf.app.flags.DEFINE_string('training_data_path', '/data/ocr/icdar2015/', 'training dataset to use')
 tf.app.flags.DEFINE_integer('max_image_large_side', 1280, 'max image size of training')
 tf.app.flags.DEFINE_integer('max_text_size', 800, 'if the text in the input image is bigger than this, then we resize '
@@ -354,22 +356,25 @@ def generate_rbox(im_size, polys, ignore_poly_tags, min_text_size):
         parallelogram = parallelogram[
             [min_coord_idx, (min_coord_idx + 1) % 4, (min_coord_idx + 2) % 4, (min_coord_idx + 3) % 4]]
 
-        rectange = rectangle_from_parallelogram(parallelogram)
-        rectange, rotate_angle = sort_rectangle(rectange)
+        rectangle = rectangle_from_parallelogram(parallelogram)
+        rectangle, rotate_angle = sort_rectangle(rectangle)
 
-        p0_rect, p1_rect, p2_rect, p3_rect = rectange
-        for y, x in xy_in_poly:
-            point = np.array([x, y], dtype=np.float32)
-            # top
-            geo_map[y, x, 0] = dataset.point_dist_to_line(p0_rect, p1_rect, point)
-            # right
-            geo_map[y, x, 1] = dataset.point_dist_to_line(p1_rect, p2_rect, point)
-            # down
-            geo_map[y, x, 2] = dataset.point_dist_to_line(p2_rect, p3_rect, point)
-            # left
-            geo_map[y, x, 3] = dataset.point_dist_to_line(p3_rect, p0_rect, point)
-            # angle
-            geo_map[y, x, 4] = rotate_angle
+        p0_rect, p1_rect, p2_rect, p3_rect = rectangle
+
+        gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectangle, rotate_angle)
+
+        # for y, x in xy_in_poly:
+        #     point = np.array([x, y], dtype=np.float32)
+        #     # top
+        #     geo_map[y, x, 0] = dataset.point_dist_to_line(p0_rect, p1_rect, point)
+        #     # right
+        #     geo_map[y, x, 1] = dataset.point_dist_to_line(p1_rect, p2_rect, point)
+        #     # down
+        #     geo_map[y, x, 2] = dataset.point_dist_to_line(p2_rect, p3_rect, point)
+        #     # left
+        #     geo_map[y, x, 3] = dataset.point_dist_to_line(p3_rect, p0_rect, point)
+        #     # angle
+        #     geo_map[y, x, 4] = rotate_angle
     return score_map, geo_map, training_mask
 
 

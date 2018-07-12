@@ -125,10 +125,10 @@ def check_and_validate_polys(polys, ignore_poly_tags, shape, image_path):
     for poly, tag in zip(polys, ignore_poly_tags):
         p_area = polygon_area(poly)
         if abs(p_area) < 1:
-            print('invalid poly :', image_path)
+            # print('invalid poly :', image_path)
             continue
         if p_area < 0:
-            print('poly in wrong direction :', image_path)
+            # print('poly in wrong direction :', image_path)
             poly = poly[(0, 3, 2, 1), :]
         validated_polys.append(poly)
         validated_tags.append(tag)
