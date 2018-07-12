@@ -225,7 +225,14 @@ def crop_area(image, polys, ignore_poly_tags, min_crop_side_ratio, crop_backgrou
         selected_polys = np.where(np.sum(poly_axis_in_area, axis=1) == 4)[0]
     else:
         selected_polys = []
-    return image[y_min:y_max + 1, x_min:x_max + 1, :], polys[selected_polys], ignore_poly_tags[selected_polys]
+
+    polys = polys[selected_polys]
+    ignore_poly_tags = ignore_poly_tags[selected_polys]
+
+    polys[:, :, 0] -= x_min
+    polys[:, :, 1] -= y_min
+
+    return image[y_min:y_max + 1, x_min:x_max + 1, :], polys, ignore_poly_tags
 
 
 def shrink_poly(poly, r):

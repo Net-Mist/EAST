@@ -401,16 +401,25 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
             h, w, _ = image.shape
             polys, ignore_poly_tags = dataset.check_and_validate_polys(polys, ignore_poly_tags, (h, w), image_path)
 
+            # random rotate
+            # angle = 0 : no rotate
+            # ANGLE = 1 : 90
+            # ANGLE = 2 : 180
+            # ANGLE = 3 : -90
+            angle = np.random.randint(0, 4)
+            if angle == 1:
+                pass
+
             # random scale
             rd_scale = np.random.choice(random_scale)
             image = cv2.resize(image, dsize=None, fx=rd_scale, fy=rd_scale)
             polys *= rd_scale
 
             # Crop
+            crop_backgroud = bool(np.random.rand() < background_ratio)
             image, polys, ignore_poly_tags = dataset.crop_area(image, polys, ignore_poly_tags,
                                                                FLAGS.min_crop_side_ratio,
-                                                               crop_background=bool(
-                                                                   np.random.rand() < background_ratio))
+                                                               crop_background=crop_backgroud)
 
             # pad the image to the training input size or the longer side of image
             max_h_w_i = np.max([image.shape[0], image.shape[1], input_size])
@@ -420,17 +429,10 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
             image = cv2.resize(im_padded, dsize=(input_size, input_size))
             polys *= input_size / max_h_w_i
 
-            try:
-                if np.random.rand() < background_ratio:
-                    score_map = np.zeros((input_size, input_size), dtype=np.uint8)
-                    geo_map_channels = 5 if FLAGS.geometry == 'RBOX' else 8
-                    geo_map = np.zeros((input_size, input_size, geo_map_channels), dtype=np.float32)
-                    training_mask = np.ones((input_size, input_size), dtype=np.uint8)
-                else:
-                    new_h, new_w, _ = image.shape
-                    score_map, geo_map, training_mask = generate_rbox((new_h, new_w), polys, ignore_poly_tags,
-                                                                      FLAGS.min_text_size)
+            score_map, geo_map, training_mask = generate_rbox((input_size, input_size), polys, ignore_poly_tags,
+                                                              FLAGS.min_text_size)
 
+            try:
                 if vis:
                     fig, axs = plt.subplots(3, 2, figsize=(20, 30))
                     # axs[0].imshow(image[:, :, ::-1])
@@ -477,10 +479,9 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
                     plt.show()
                     plt.close()
 
-                images.append(image[:, :, ::-1].astype(np.float32))
+                images.append(image.astype(np.float32))
                 image_fns.append(image_path)
-                score_maps.append(
-                    score_map[::4, ::4, np.newaxis].astype(np.float32))
+                score_maps.append(score_map[::4, ::4, np.newaxis].astype(np.float32))
                 geo_maps.append(geo_map[::4, ::4, :].astype(np.float32))
                 training_masks.append(
                     training_mask[::4, ::4, np.newaxis].astype(np.float32))
