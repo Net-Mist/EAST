@@ -413,7 +413,20 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
             # ANGLE = 3 : -90
             angle = np.random.randint(0, 4)
             if angle == 1:
-                pass
+                image = np.rot90(image)
+                tmp = polys[:, :, 1].copy()
+                polys[:, :, 1] = w - polys[:, :, 0].copy()
+                polys[:, :, 0] = tmp
+            elif angle == 2:
+                image = np.rot90(image, k=2)
+                tmp = w - polys[:, :, 0].copy()
+                polys[:, :, 1] = h - polys[:, :, 1]
+                polys[:, :, 0] = tmp
+            elif angle == 3:
+                image = np.rot90(image, k=3)
+                tmp = h - polys[:, :, 1].copy()
+                polys[:, :, 1] = polys[:, :, 0]
+                polys[:, :, 0]  = tmp
 
             # random scale
             rd_scale = np.random.choice(random_scale)
@@ -434,8 +447,12 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
             image = cv2.resize(im_padded, dsize=(input_size, input_size))
             polys *= input_size / max_h_w_i
 
-            score_map, geo_map, training_mask = generate_rbox((input_size, input_size), polys, ignore_poly_tags,
-                                                              FLAGS.min_text_size)
+            try:
+                score_map, geo_map, training_mask = generate_rbox((input_size, input_size), polys, ignore_poly_tags,
+                                                                  FLAGS.min_text_size)
+            except Exception as e:
+                print(e)
+                print(polys)
 
             try:
                 if vis:
