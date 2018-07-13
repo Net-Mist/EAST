@@ -426,7 +426,7 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
                 image = np.rot90(image, k=3)
                 tmp = h - polys[:, :, 1].copy()
                 polys[:, :, 1] = polys[:, :, 0]
-                polys[:, :, 0]  = tmp
+                polys[:, :, 0] = tmp
 
             # random scale
             rd_scale = np.random.choice(random_scale)
