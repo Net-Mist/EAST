@@ -69,7 +69,7 @@ def load_annotation(file_path):
     polys = []
     ignore_poly_tag = []
 
-    with open(file_path, 'r') as annotation_file:
+    with open(file_path, 'r', encoding='utf-8') as annotation_file:
         reader = csv.reader(annotation_file)
         for line in reader:
             label = line[-1]

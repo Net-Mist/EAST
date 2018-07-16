@@ -400,6 +400,9 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
             except dataset.ReadingFileError as e:
                 print(e)
                 continue
+            except Exception as e:
+                print("Issue with image", image_path, e)
+                raise e
 
             h, w, _ = image.shape
             polys, ignore_poly_tags = dataset.check_and_validate_polys(polys, ignore_poly_tags, (h, w), image_path)
