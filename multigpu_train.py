@@ -21,7 +21,6 @@ tf.app.flags.DEFINE_integer('save_checkpoint_steps', 1000, '')
 tf.app.flags.DEFINE_integer('save_summary_steps', 100, '')
 tf.app.flags.DEFINE_string('pretrained_model_path', None, '')
 
-
 FLAGS = tf.app.flags.FLAGS
 
 gpus = list(range(len(FLAGS.gpu_list.split(','))))
@@ -32,8 +31,9 @@ def tower_loss(images, score_maps, geo_maps, training_masks, reuse_variables=Non
     with tf.variable_scope(tf.get_variable_scope(), reuse=reuse_variables):
         f_score, f_geometry = model.model(images, is_training=True)
 
-    model_loss = model.loss(score_maps, f_score, geo_maps, f_geometry, training_masks)
-    total_loss = tf.add_n([model_loss] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
+    with tf.name_scope("Loss"):
+        model_loss = model.loss(score_maps, f_score, geo_maps, f_geometry, training_masks)
+        total_loss = tf.add_n([model_loss] + tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES))
 
     # add summary
     if reuse_variables is None:
@@ -59,18 +59,19 @@ def average_gradients(tower_grads):
 
     """
     average_grads = []
-    for grad_and_vars in zip(*tower_grads):
-        grads = []
-        for g, _ in grad_and_vars:
-            expanded_g = tf.expand_dims(g, 0)
-            grads.append(expanded_g)
+    with tf.name_scope("average_gradients"):
+        for grad_and_vars in zip(*tower_grads):
+            grads = []
+            for g, _ in grad_and_vars:
+                expanded_g = tf.expand_dims(g, 0)
+                grads.append(expanded_g)
 
-        grad = tf.concat(grads, 0)
-        grad = tf.reduce_mean(grad, 0)
+            grad = tf.concat(grads, 0)
+            grad = tf.reduce_mean(grad, 0)
 
-        v = grad_and_vars[0][1]
-        grad_and_var = (grad, v)
-        average_grads.append(grad_and_var)
+            v = grad_and_vars[0][1]
+            grad_and_var = (grad, v)
+            average_grads.append(grad_and_var)
 
     return average_grads
 
@@ -123,13 +124,15 @@ def main():
                 grads = opt.compute_gradients(total_loss)
                 tower_grads.append(grads)
 
-    grads = average_gradients(tower_grads)
-    apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
+    with tf.name_scope("grad"):
+        grads = average_gradients(tower_grads)
+        apply_gradient_op = opt.apply_gradients(grads, global_step=global_step)
 
     summary_op = tf.summary.merge_all()
     # save moving average
-    variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_average_decay, global_step)
-    variables_averages_op = variable_averages.apply(tf.trainable_variables())
+    with tf.name_scope("moving_average"):
+        variable_averages = tf.train.ExponentialMovingAverage(FLAGS.moving_average_decay, global_step)
+        variables_averages_op = variable_averages.apply(tf.trainable_variables())
     # batch norm updates
     with tf.control_dependencies([variables_averages_op, apply_gradient_op, batch_norm_updates_op]):
         train_op = tf.no_op(name='train_op')
@@ -137,11 +140,14 @@ def main():
     saver = tf.train.Saver(tf.global_variables())
     summary_writer = tf.summary.FileWriter(FLAGS.checkpoint_path, tf.get_default_graph())
 
-    init = tf.global_variables_initializer()
+    with tf.name_scope("global_var_init"):
+        init = tf.global_variables_initializer()
 
     if FLAGS.pretrained_model_path is not None:
-        variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path, slim.get_trainable_variables(),
-                                                             ignore_missing_vars=True)
+        with tf.name_scope("assign_from_checkpoint"):
+            variable_restore_op = slim.assign_from_checkpoint_fn(FLAGS.pretrained_model_path,
+                                                                 slim.get_trainable_variables(),
+                                                                 ignore_missing_vars=True)
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
         if FLAGS.restore:
             print('continue training from previous checkpoint')
@@ -168,11 +174,12 @@ def main():
                 break
 
             if step % 10 == 0:
-                avg_time_per_step = (time.time() - start)/10
-                avg_examples_per_second = (10 * FLAGS.batch_size_per_gpu * len(gpus))/(time.time() - start)
+                avg_time_per_step = (time.time() - start) / 10
+                avg_examples_per_second = (10 * FLAGS.batch_size_per_gpu * len(gpus)) / (time.time() - start)
                 start = time.time()
-                print('Step {:06d}, model loss {:.4f}, total loss {:.4f}, {:.2f} seconds/step, {:.2f} examples/second'.format(
-                    step, ml, tl, avg_time_per_step, avg_examples_per_second))
+                print(
+                    'Step {:06d}, model loss {:.4f}, total loss {:.4f}, {:.2f} seconds/step, {:.2f} examples/second'.format(
+                        step, ml, tl, avg_time_per_step, avg_examples_per_second))
 
             if step % FLAGS.save_checkpoint_steps == 0:
                 saver.save(sess, FLAGS.checkpoint_path + 'model.ckpt', global_step=global_step)
@@ -181,7 +188,8 @@ def main():
                 _, tl, summary_str = sess.run([train_op, total_loss, summary_op], feed_dict={input_images: data[0],
                                                                                              input_score_maps: data[2],
                                                                                              input_geo_maps: data[3],
-                                                                                             input_training_masks: data[4]})
+                                                                                             input_training_masks: data[
+                                                                                                 4]})
                 summary_writer.add_summary(summary_str, global_step=step)
 
 

@@ -357,10 +357,10 @@ def generate_rbox(im_size, polys, ignore_poly_tags, min_text_size):
         rectangle = rectangle_from_parallelogram(parallelogram)
         rectangle, rotate_angle = sort_rectangle(rectangle)
 
-        p0_rect, p1_rect, p2_rect, p3_rect = rectangle
-
+        # This part is implemented in cpp. The equivalent python code is below.
         gen_geo_map.gen_geo_map(geo_map, xy_in_poly, rectangle, rotate_angle)
 
+        # p0_rect, p1_rect, p2_rect, p3_rect = rectangle
         # for y, x in xy_in_poly:
         #     point = np.array([x, y], dtype=np.float32)
         #     # top
@@ -385,7 +385,7 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
     while True:
         np.random.shuffle(image_indexes)
         images = []
-        image_fns = []
+        image_paths = []
         score_maps = []
         geo_maps = []
         training_masks = []
@@ -457,16 +457,16 @@ def generator(input_size=512, batch_size=32, background_ratio=3. / 8, random_sca
 
             try:
                 images.append(image.astype(np.float32))
-                image_fns.append(image_path)
+                image_paths.append(image_path)
                 score_maps.append(score_map[::4, ::4, np.newaxis].astype(np.float32))
                 geo_maps.append(geo_map[::4, ::4, :].astype(np.float32))
                 training_masks.append(
                     training_mask[::4, ::4, np.newaxis].astype(np.float32))
 
                 if len(images) == batch_size:
-                    yield images, image_fns, score_maps, geo_maps, training_masks
+                    yield images, image_paths, score_maps, geo_maps, training_masks
                     images = []
-                    image_fns = []
+                    image_paths = []
                     score_maps = []
                     geo_maps = []
                     training_masks = []
