@@ -10,7 +10,7 @@ from training import dataset
 
 import tensorflow as tf
 
-from data_util import GeneratorEnqueuer
+from training.data_util import GeneratorEnqueuer
 
 import training.gen_geo_map.gen_geo_map as gen_geo_map
 

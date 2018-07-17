@@ -5,8 +5,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.contrib import slim
 
-import model
-import icdar
+from training import icdar, model
 
 tf.app.flags.DEFINE_integer('input_size', 512, '')
 tf.app.flags.DEFINE_integer('batch_size_per_gpu', 14, '')

@@ -3,10 +3,8 @@ data_dir_host = /mnt/nas/datasets/ICDAR
 data_dir_docker = /data
 checkpoint_dir_host = /mnt/nas/tf_experiments/ocr/east/training/3
 checkpoint_dir_docker = /training
-checkpoint_path_docker = /training/east
+checkpoint_path_docker = $(checkpoint_dir_docker)/east
 
-Default:
-	nvidia-docker run -it --rm
 docker:
 	docker build -t seb/train_east:$(version) .
 train:

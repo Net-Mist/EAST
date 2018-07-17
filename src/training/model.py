@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from nets2 import resnet_v1
+from training.resnet import resnet_v1
 from tensorflow.contrib import slim
 
 tf.app.flags.DEFINE_integer('text_scale', 512, '')
