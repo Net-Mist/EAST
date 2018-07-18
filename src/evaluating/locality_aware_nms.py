@@ -1,13 +1,23 @@
 import numpy as np
 from shapely.geometry import Polygon
+import time
 
 
 def intersection(g, p):
+    """
+    Compute the IoU (Intersection over Union) of g and p
+    Args:
+        g: An array of shape 9. first 8 coordinates
+        p: An array of shape 9. first 8 coordinates
+
+    Returns:
+
+    """
     g = Polygon(g[:8].reshape((4, 2)))
     p = Polygon(p[:8].reshape((4, 2)))
     if not g.is_valid or not p.is_valid:
         return 0
-    inter = Polygon(g).intersection(Polygon(p)).area
+    inter = g.intersection(p).area
     union = g.area + p.area - inter
     if union == 0:
         return 0
@@ -17,13 +27,13 @@ def intersection(g, p):
 
 def weighted_merge(g, p):
     g[:8] = (g[8] * g[:8] + p[8] * p[:8]) / (g[8] + p[8])
-    g[8] = (g[8] + p[8])
+    g[8] = g[8] + p[8]
     return g
 
 
 def standard_nms(S, thres):
-    order = np.argsort(S[:, 8])[::-1]
-    keep = []
+    order = np.argsort(S[:, 8])[::-1]  # List of the ids of elements of S in decreasing order of score not yet processed
+    keep = []  # List of ids to keep
     while order.size > 0:
         i = order[0]
         keep.append(i)
@@ -40,7 +50,7 @@ def nms_locality(polys, thres=0.3):
     locality aware nms of EAST
     Args:
         polys: a N*9 numpy array. first 8 coordinates, then prob
-        thres:
+        thres: merging threshold
     Returns: boxes after nms
     """
     S = []

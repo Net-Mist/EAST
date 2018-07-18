@@ -1,23 +1,31 @@
-#!/usr/bin/env python3
-
 import os
-
 import time
 import datetime
 import cv2
-import numpy as np
 import uuid
 import json
-
 import functools
 import logging
 import collections
-
 import fire
+import io
+
+import numpy as np
 import tensorflow as tf
 
+from flask import Flask, request, render_template
+from evaluating import resize_image, sort_poly, detect
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
+# logger.setLevel(logging.INFO)
+
+app = Flask(__name__)
+
+save_dir = None
+session = None
+image_placeholder = None
+score_output = None
+map_output = None
 
 
 @functools.lru_cache(maxsize=1)
@@ -35,22 +43,14 @@ def get_host_info():
     return ret
 
 
-from icdar import restore_rectangle
-# import lanms
-from eval import resize_image, sort_poly, detect
-
 def predictor(img):
+    global session
     """
-    :return: {
+    Returns:
+        {
         'text_lines': [
-            {
-                'score': ,
-                'x0': ,
-                'y0': ,
-                'x1': ,
-                ...
-                'y3': ,
-            }
+            {'score': , 'x0': , 'y0': , 'x1': , ... 'y3': }
+            ....
         ],
         'rtparams': {  # runtime parameters
             'image_size': ,
@@ -76,15 +76,16 @@ def predictor(img):
         ('nms', 0)
     ])
 
+    # Prepare data
     im_resized, (ratio_h, ratio_w) = resize_image(img)
-    rtparams['working_size'] = '{}x{}'.format(
-        im_resized.shape[1], im_resized.shape[0])
+    rtparams['working_size'] = '{}x{}'.format(im_resized.shape[1], im_resized.shape[0])
+
+    # Network
     start = time.time()
-    score, geometry = sess.run(
-        [f_score, f_geometry],
-        feed_dict={input_images: [im_resized[:, :, ::-1]]})
+    score, geometry = session.run([score_output, map_output], feed_dict={image_placeholder: [im_resized[:, :, ::-1]]})
     timer['net'] = time.time() - start
 
+    # NMS
     boxes, timer = detect(score_map=score, geo_map=geometry, timer=timer)
     logger.info('net {:.0f}ms, restore {:.0f}ms, nms {:.0f}ms'.format(
         timer['net'] * 1000, timer['restore'] * 1000, timer['nms'] * 1000))
@@ -120,20 +121,6 @@ def predictor(img):
     return ret
 
 
-# the webserver
-from flask import Flask, request, render_template
-import argparse
-
-
-class Config:
-    SAVE_DIR = 'static/results'
-
-
-config = Config()
-
-app = Flask(__name__)
-
-
 @app.route('/')
 def index():
     return render_template('index.html', session_id='dummy_session_id')
@@ -149,8 +136,9 @@ def draw_illu(illu, rst):
 
 
 def save_result(img, rst):
+    global save_dir
     session_id = str(uuid.uuid1())
-    dirpath = os.path.join(config.SAVE_DIR, session_id)
+    dirpath = os.path.join(save_dir, session_id)
     os.makedirs(dirpath)
 
     # save input image
@@ -170,28 +158,20 @@ def save_result(img, rst):
     return rst
 
 
-checkpoint_path = 'east_icdar2015_resnet_v1_50_rbox'
-
-
 @app.route('/', methods=['POST'])
 def index_post():
-    global predictor
-    import io
     bio = io.BytesIO()
     request.files['image'].save(bio)
     img = cv2.imdecode(np.frombuffer(bio.getvalue(), dtype='uint8'), 1)
-    rst = get_predictor(checkpoint_path)(img)
+    rst = predictor(img)
 
     save_result(img, rst)
     return render_template('index.html', session_id=rst['session_id'])
 
 
-def main(frozen_model_path, port=8769):
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--port', default=8769, type=int)
-    parser.add_argument('--checkpoint_path', default=checkpoint_path)
-    parser.add_argument('--debug', action='store_true')
-    args = parser.parse_args()
+def main(frozen_model_path, port=8769, debug=False, log_dir="static/results"):
+    global save_dir, session, image_placeholder, score_output, map_output
+    save_dir = log_dir
 
     if not os.path.exists(frozen_model_path):
         raise RuntimeError('Frozen model `{}` not found'.format(frozen_model_path))
@@ -201,8 +181,13 @@ def main(frozen_model_path, port=8769):
         graph_def = tf.GraphDef()
         graph_def.ParseFromString(f.read())
     tf.import_graph_def(graph_def, name="east")
+    session = tf.Session()
 
-    app.debug = args.debug
+    image_placeholder = tf.get_default_graph().get_tensor_by_name("east/input_images:0")
+    score_output = tf.get_default_graph().get_tensor_by_name("east/feature_fusion/score_map/Sigmoid:0")
+    map_output = tf.get_default_graph().get_tensor_by_name("east/feature_fusion/concat_3:0")
+
+    app.debug = debug
     app.run('0.0.0.0', port)
 
 
