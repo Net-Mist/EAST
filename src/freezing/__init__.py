@@ -1,7 +1,5 @@
 import tensorflow as tf
 from training import model
-import fire
-import os
 
 
 def main(checkpoint_path: str, frozen_model_path: str):
@@ -16,13 +14,17 @@ def main(checkpoint_path: str, frozen_model_path: str):
     """
     tf.reset_default_graph()
 
-    input_images = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='input_images')
+    input_images = tf.placeholder(tf.float32, shape=[1, None, None, 3], name='input_images')
+
+    global_step = tf.get_variable('global_step', [], initializer=tf.constant_initializer(0), trainable=False)
     f_score, f_geometry = model.model(input_images, is_training=False)
+
+    variable_averages = tf.train.ExponentialMovingAverage(0.997, global_step)
+    saver = tf.train.Saver(variable_averages.variables_to_restore())
 
     session = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
 
     print('Restore from {}'.format(checkpoint_path))
-    saver = tf.train.Saver()
     saver.restore(session, checkpoint_path)
 
     output_graph_def = tf.graph_util.convert_variables_to_constants(
