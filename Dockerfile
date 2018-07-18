@@ -6,13 +6,19 @@ RUN apt update \
 
 RUN pip install opencv-python==3.4.1.15 \
     shapely==1.6.4.post1 \
-    Cython==0.28.4
+    Cython==0.28.4 \
+    # For demo server
+    fire==0.1.3 \
+    flask==1.0.2 \
+    gunicorn==19.9.0
 
-COPY . /root/east
+RUN mkdir -p /root/server_log
+
+COPY src /root/east
 
 WORKDIR /root/east
 
-RUN cd src/training/gen_geo_map \
+RUN cd training/gen_geo_map \
     && bash build_ext.sh \
     && cd ../../evaluating/lanms \
     && make clean \
